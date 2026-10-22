@@ -49,14 +49,6 @@ BYTE measure_get_impulse_len(WORD level);
 // Измеренная длительность импульса (после calc_amperage)
 BYTE measure_get_impulse_len_measured(void);
 
-// === Отладочные (для show_debug) ===
-WORD measure_get_max_code(void);
-WORD measure_get_threshold_code(void);
-WORD measure_get_max_pos(void);
-WORD measure_get_samples_qnty(void);
-BYTE measure_get_total_len(void);
-WORD measure_get_sample(WORD index);
-
 // ============================================================
 //  КАНАЛЫ АЦП
 // ============================================================
