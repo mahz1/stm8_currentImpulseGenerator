@@ -1,0 +1,15 @@
+Debug/
+Release/
+*.obj
+*.pbi
+*.pbd
+*.dni
+*.dnm
+*.wsdt
+*.browse
+*.dep
+*.ewt
+*.ewd
+Thumbs.db
+desktop.ini
+.vscode/
