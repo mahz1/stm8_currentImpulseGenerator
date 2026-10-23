@@ -69,6 +69,7 @@ WORD measure_get_adc_value(BYTE analog_channel) {
     { volatile WORD i; for (i = 0; i < 800; i++); } // Стабилизация канала
 
     for (BYTE i = 0; i < AVERAGE_RATIO; ++i) {
+        wd_reset();
         ADC1_StartConversion();
         while (!ADC1_GetFlagStatus(ADC1_FLAG_EOC));
         ADC1_ClearFlag(ADC1_FLAG_EOC);
@@ -130,6 +131,7 @@ bool measure_check_pulse_length(BYTE value) {
 }
 
 bool measure_check_safe(void) {
+    wd_reset();
     extern bool pulse_is_active(void);
     if (!pulse_is_active()) {
         WORD amperage_code = measure_get_adc_value(MEASURE_ADC_CH_CURRENT);

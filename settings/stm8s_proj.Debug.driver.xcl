@@ -6,6 +6,8 @@
 
 "STM8S105C6" 
 
+"--erase_memory" 
+
 
 
 

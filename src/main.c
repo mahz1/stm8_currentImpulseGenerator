@@ -2,6 +2,7 @@
 #include "stm8s_gpio.h"
 #include "stm8s_clk.h"
 #include "stm8s_i2c.h"
+#include "stm8s_iwdg.h"
 #include "common.h"
 #include "show.h"
 #include "measure.h"
@@ -15,33 +16,41 @@
 MODE_TYPE mode = WORK;
 
 int main(void) {
-    // 1. Тактирование 16 МГц
+    // 1. Принудительный сброс IWDG (на случай, если он был запущен ранее)
+    IWDG_WriteAccessCmd(IWDG_WriteAccess_Enable);
+    IWDG_ReloadCounter();
+
+    // 2. Тактирование 16 МГц
     CLK_HSICmd(ENABLE);
     CLK_SYSCLKConfig(CLK_PRESCALER_CPUDIV1);
 
-    // 2. Светодиод (индикатор)
+    // 3. Светодиод (индикатор)
     GPIO_Init(GPIOD, GPIO_PIN_0, GPIO_MODE_OUT_PP_LOW_SLOW);
 
-    // 3. I2C
+    // 4. I2C
     GPIO_Init(GPIOE, GPIO_PIN_1 | GPIO_PIN_2, GPIO_MODE_OUT_OD_HIZ_FAST);
     CLK_PeripheralClockConfig(CLK_PERIPHERAL_I2C, ENABLE);
     I2C_Init(100000, 0x00, I2C_DUTYCYCLE_2, I2C_ACK_CURR, I2C_ADDMODE_7BIT, 16);
     I2C_Cmd(ENABLE);
 
-    // 4. Инициализация модулей (сначала выключаем силовую часть!)
+    // 5. Инициализация силовой части (отключаем всё для безопасности)
     pulse_init();
     charge_init();
-    show_init(); // Долгая инициализация LCD
-    
-    // NOTE: Watchdog отключён на время отладки.
-    // wd_start();
 
+    // 6. Инициализация LCD (долгая операция)
+    show_init();
+
+    // 7. Инициализация остальных модулей
     measure_init();
     timer_init();
     file_init();
     keyboard_init();
 
-    // Переменные состояний
+    // 8. Включаем Watchdog (после всех долгих инициализаций)
+    wd_start();
+    wd_reset();
+
+    // 9. Переменные состояний
     WORD amperage = 500;
     WORD pulse_length = 3 * PULSE_DURATION_SCALE;
     WORD measured_amperage = 0;
@@ -55,7 +64,10 @@ int main(void) {
     enum STATE_TYPE state = STATE_GET_MODE;
     ANSWER_TYPE answer;
 
+    // 10. Основной цикл
     while (1) {
+        wd_reset();
+        
         switch (state) {
             case STATE_GET_MODE:
                 mode = show_get_mode();
@@ -85,7 +97,6 @@ int main(void) {
                 break;
 
             case STATE_PULSE:
-                // Запуск с учётом длины фронта
                 pulse_start((BYTE)(pulse_length + measure_get_front_len()));
                 measured_amperage = measure_measure_amperage((BYTE)pulse_length);
                 state = STATE_SHOW_RESULT;
@@ -117,9 +128,4 @@ int main(void) {
                 break;
         }
     }
-}
-
-// Заглушка SPL
-void assert_failed(uint8_t* file, uint32_t line) {
-    while (1) { }
 }

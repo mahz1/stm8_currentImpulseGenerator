@@ -10,24 +10,29 @@
 
 // Настройки LCD
 #define LCD_ADDR 0x38
-#define LCD_BL   0x08
+#define LCD_BL   0x00
 #define LCD_EN   0x04
 #define LCD_RS   0x01
 
 // --- Внутренние функции LCD ---
 static void lcd_send_nibble(unsigned char nibble, unsigned char rs) {
-    unsigned char data = (nibble << 4) | LCD_BL | (rs ? LCD_RS : 0);
+    unsigned char data = (nibble << 4) | LCD_BL | (rs ? 0x01 : 0); // BL=1
 
     I2C_GenerateSTART(ENABLE);
     while (!I2C_CheckEvent(I2C_EVENT_MASTER_MODE_SELECT));
+
     I2C_Send7bitAddress(LCD_ADDR << 1, I2C_DIRECTION_TX);
     while (!I2C_CheckEvent(I2C_EVENT_MASTER_TRANSMITTER_MODE_SELECTED));
-    
-    I2C_SendData(data | LCD_EN);
+
+    I2C_SendData(data | 0x04); // EN=1
     while (!I2C_CheckEvent(I2C_EVENT_MASTER_BYTE_TRANSMITTED));
-    I2C_SendData(data & ~LCD_EN);
+
+    // Задержка для строба (как в тесте)
+    for (volatile unsigned int i = 0; i < 500; i++);
+
+    I2C_SendData(data & ~0x04); // EN=0
     while (!I2C_CheckEvent(I2C_EVENT_MASTER_BYTE_TRANSMITTED));
-    
+
     I2C_GenerateSTOP(ENABLE);
 }
 
@@ -65,30 +70,42 @@ static uint8_t ru_lcd_utf8(const char** p) {
 }
 
 void show_init(void) {
-    { volatile unsigned long i; for (i = 0; i < 100000UL; i++); } // Питание
+    // 1. Ждём питания
+    for (volatile unsigned long i = 0; i < 100000UL; i++);
+
+    // 2. Три раза 0x03
+    lcd_send_nibble(0x03, 0);
+    for (volatile unsigned long i = 0; i < 100000UL; i++);
 
     lcd_send_nibble(0x03, 0);
-    { volatile unsigned int i; for (i = 0; i < 5000U; i++); }
-    lcd_send_nibble(0x03, 0);
-    { volatile unsigned int i; for (i = 0; i < 5000U; i++); }
-    lcd_send_nibble(0x03, 0);
-    { volatile unsigned int i; for (i = 0; i < 5000U; i++); }
-    lcd_send_nibble(0x02, 0); // 4-бит
-    { volatile unsigned int i; for (i = 0; i < 5000U; i++); }
+    for (volatile unsigned long i = 0; i < 100000UL; i++);
 
-    lcd_send_byte(0x28, 0); // 2 строки
-    { volatile unsigned int i; for (i = 0; i < 5000U; i++); }
-    lcd_send_byte(0x0C, 0); // ON
-    { volatile unsigned int i; for (i = 0; i < 5000U; i++); }
-    lcd_send_byte(0x06, 0); // Инкремент
-    { volatile unsigned int i; for (i = 0; i < 5000U; i++); }
-    
-    lcd_send_byte(0x01, 0); // Clear
-    { volatile unsigned long i; for (i = 0; i < 50000UL; i++); } 
-    
-    // Переключение на кириллицу
+    lcd_send_nibble(0x03, 0);
+    for (volatile unsigned long i = 0; i < 100000UL; i++);
+
+    // 3. Переход в 4-битный режим
+    lcd_send_nibble(0x02, 0);
+    for (volatile unsigned long i = 0; i < 100000UL; i++);
+
+    // 4. Function Set (0x28)
+    lcd_send_byte(0x28, 0);
+    for (volatile unsigned long i = 0; i < 100000UL; i++);
+
+    // 5. Display ON (0x0C)
+    lcd_send_byte(0x0C, 0);
+    for (volatile unsigned long i = 0; i < 100000UL; i++);
+
+    // 6. Clear (0x01)
+    lcd_send_byte(0x01, 0);
+    for (volatile unsigned long i = 0; i < 100000UL; i++);
+
+    // 7. Entry mode (0x06)
+    lcd_send_byte(0x06, 0);
+    for (volatile unsigned long i = 0; i < 100000UL; i++);
+
+    // 8. Страница 0x2A (русский)
     lcd_send_byte(0x2A, 0);
-    { volatile unsigned int i; for (i = 0; i < 5000U; i++); }
+    for (volatile unsigned long i = 0; i < 100000UL; i++);
 }
 
 void show_send_string(BYTE col, BYTE row, const char* str) {
@@ -252,6 +269,7 @@ ANSWER_TYPE show_charging(WORD amperage) {
     BYTE state = 0; // 0 = заряд, 1 = разряд
 
     while (1) {
+        wd_reset();
         percent = measure_get_charge_percent(amperage, &charge);
 
         if (percent != old_percent) {
@@ -319,6 +337,7 @@ void show_discharge(void) {
     charge_discharge();
 
     while (1) {
+        wd_reset();
         float voltage = measure_get_capacitor_voltage();
         char buf[8];
         int v_int = (int)voltage;

@@ -1682,6 +1682,9 @@
         <name>$PROJ_DIR$\spl_src\stm8s_iwdg.c</name>
     </file>
     <file>
+        <name>$PROJ_DIR$\spl_src\stm8s_rst.c</name>
+    </file>
+    <file>
         <name>$PROJ_DIR$\spl_src\stm8s_tim1.c</name>
     </file>
     <file>
